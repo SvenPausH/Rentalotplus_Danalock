@@ -2,20 +2,24 @@
 
 **Joomla 5/6 Komponente** · Danalock PIN-Verwaltung für Rentalot Plus
 
-Verwaltet Danalock PIN-Codes direkt aus dem Joomla-Backend, verknüpft mit den Buchungsdaten von [Rentalot Plus](https://github.com/SvenPausH/Rentalotplus).
+Verwaltet Danalock V3 PIN-Codes und Zeitfenster direkt aus dem Joomla-Backend,
+verknüpft mit den Buchungsdaten von [Rentalot Plus](https://github.com/SvenPausH/Rentalotplus).
 
 ---
 
 ## Funktionen
 
-- **Buchungsübersicht** – Alle aktuellen und kommenden Buchungen aus Rentalot Plus auf einen Blick
-- **PIN vergeben** – PIN-Code (4–10 Stellen) einem Buchungs-Slot (1–20) zuweisen, direkt ans Schloss senden
-- **Zeitbasierte PINs** – Check-in und Check-out Zeiten werden mit jedem PIN gespeichert
+- **Buchungsübersicht** – Alle aktuellen und kommenden Buchungen aus Rentalot Plus
+- **PIN vergeben** – PIN-Code (4–10 Stellen) einem Slot (1–20) zuweisen und direkt ans Schloss senden
+- **Zeitfenster** – Check-in und Check-out Datum+Uhrzeit werden als Zeitregel ans Schloss übertragen
 - **Zufalls-PIN** – Generator für sichere 6-stellige PINs
-- **Alle PIN-Slots** – Übersicht aller 20 Schloss-Slots mit belegtem Gast und Uhrzeiten
+- **Automatische Slot-Freigabe** – Abgelaufene Slots werden beim Laden automatisch freigegeben
+- **Belegte Slots** – Im PIN-Dialog werden bereits vergebene Slots als „(belegt)" angezeigt
+- **Alle PIN-Slots** – Übersicht aller 20 Schloss-Slots mit Gastname und Uhrzeiten aus der DB
 - **Schloss-Status** – Zeigt ob das Schloss gesperrt oder offen ist
 - **Debug-Log** – Vollständige API-Kommunikation protokollieren (ein-/ausschaltbar)
 - **Mehrere Häuser** – Unterstützung mehrerer Schlösser über Unit-Mapping
+- **Untermenü** – Erscheint automatisch als Untermenüpunkt von Rentalot Plus
 
 ---
 
@@ -27,7 +31,7 @@ Verwaltet Danalock PIN-Codes direkt aus dem Joomla-Backend, verknüpft mit den B
 | PHP | 8.1 oder neuer |
 | Rentalot Plus | Muss installiert sein |
 | Danalock | V3 Schloss + Danabridge V3 |
-| PHP-Extension | cURL |
+| PHP-Extension | cURL, OpenSSL |
 
 Ein aktives **Danalock-Konto** (my.danalock.com) ist erforderlich.
 
@@ -36,9 +40,9 @@ Ein aktives **Danalock-Konto** (my.danalock.com) ist erforderlich.
 ## Installation
 
 1. ZIP-Paket herunterladen (Releases-Tab auf GitHub)
-2. Joomla-Backend öffnen: **System → Installieren → Erweiterungen**
+2. Joomla-Backend: **System → Installieren → Erweiterungen**
 3. ZIP hochladen und installieren
-4. Die Komponente erscheint automatisch als Untermenüpunkt unter **Komponenten → Rentalot Plus → Danalock PIN-Verwaltung**
+4. Erscheint automatisch unter **Komponenten → Rentalot Plus → Danalock PIN-Verwaltung**
 
 ---
 
@@ -59,17 +63,17 @@ Ein aktives **Danalock-Konto** (my.danalock.com) ist erforderlich.
 
 ### MAC-Adresse des Schlosses finden
 
-Danalock-App öffnen → Schloss antippen → Zahnrad-Symbol → **Geräteinformationen**  
+Danalock-App → Schloss antippen → Zahnrad-Symbol → **Geräteinformationen**
 Format: `06:cd:42:45:44:ff`
 
 ### Mehrere Häuser konfigurieren
 
-Im Feld „Haus → Schloss Zuordnung" eine Zeile pro Haus eintragen:
+Im Feld „Haus → Schloss Zuordnung" eine Zeile pro Haus:
 ```
 1:06:cd:42:45:44:ff
 2:06:cd:42:45:44:aa
 ```
-Die `unit_id` entspricht der ID in der Rentalot-Plus-Tabelle `jos_rentalot_plus_bookings`.
+Die `unit_id` entspricht der ID in `jos_rentalot_plus_bookings`.
 
 ---
 
@@ -77,38 +81,42 @@ Die `unit_id` entspricht der ID in der Rentalot-Plus-Tabelle `jos_rentalot_plus_
 
 ### Buchungen & PINs
 
-Zeigt alle Buchungen mit `state = 0` (Reserviert) oder `state = 1` (Gebucht) ab dem heutigen Tag.
+Zeigt alle Buchungen mit `state = 0` (Reserviert) oder `state = 1` (Gebucht) ab heute.
 
-**PIN vergeben:**
+**PIN mit Zeitfenster vergeben:**
 1. Auf **✏️ PIN** klicken
-2. PIN-Slot wählen (1–20), PIN eingeben oder generieren lassen
-3. Check-in/Check-out Zeiten anpassen falls nötig
-4. **Speichern & an Schloss senden** → dauert ca. 10 Sekunden (Bridge-API ist asynchron)
+2. Freien Slot wählen (belegte Slots sind als „(belegt)" markiert)
+3. PIN eingeben oder per Zufallsbutton generieren
+4. Check-in/Check-out Zeit anpassen (Datum kommt aus der Buchung)
+5. **Speichern & an Schloss senden** → dauert ca. 20–30 Sekunden
 
-**PIN löschen:** 🗑-Button neben dem PIN-Button
+**Slot freigeben:** 🗑-Button – gibt nur den DB-Eintrag frei,
+der PIN bleibt im Schloss aktiv und wird beim nächsten Gast überschrieben.
+
+**Automatische Freigabe:** Beim Öffnen der Übersicht werden Slots
+deren Abreisezeitpunkt (`date_to + checkout_time`) in der Vergangenheit
+liegt automatisch freigegeben.
 
 ### Alle PIN-Slots
 
-Liest alle 20 Slots direkt vom Schloss aus (dauert ca. 10 Sekunden).  
-Zeigt zusätzlich den zugeordneten Gast und die Zeiten aus der lokalen Datenbank.
+Liest alle 20 Slots direkt vom Schloss (dauert ca. 10 Sekunden).
+Zeigt Gastname und Zeiten aus der lokalen Datenbank.
 
-> **Hinweis:** Die Danalock Bridge API gibt keine Zeitfenster-Informationen zurück –
-> nur Slot-Nummer, Aktiv/Frei und PIN-Ziffern. Die Zeiten kommen aus unserer DB.
+> **Hinweis:** Die Danalock Bridge API gibt beim Auslesen keine
+> Zeitfenster-Informationen zurück – nur Slot-Nummer, Aktiv/Frei
+> und PIN-Ziffern. Zeiten kommen aus unserer DB.
 
 ### Debug-Log
 
-Unter **Optionen → Debug & Logging** aktivierbar.  
-Protokolliert alle API-Aufrufe, Job-IDs und Poll-Ergebnisse in der Datenbank.
+Unter **Optionen → Debug & Logging** aktivierbar.
+Protokolliert alle API-Aufrufe und Antworten in der Datenbank.
 Nur zur Fehlersuche aktivieren.
 
 ---
 
 ## Datenbank
 
-Die Komponente legt zwei eigene Tabellen an:
-
 ### `jos_rentalot_plus_danalock_pins`
-Speichert die Zuordnung von Buchung → PIN-Slot mit Zeiten.
 
 | Spalte | Typ | Beschreibung |
 |---|---|---|
@@ -120,36 +128,145 @@ Speichert die Zuordnung von Buchung → PIN-Slot mit Zeiten.
 | `last_updated` | DATETIME | Letztes Speicherdatum |
 
 ### `jos_rentalot_plus_danalock_log`
+
 Debug-Log-Einträge (nur bei aktiviertem Logging).
 
 ---
 
 ## Technische Details
 
-### API-Flow
+### API-Flow (Übersicht)
 
-Die Danalock Bridge-API ist **asynchron**:
+Alle Bridge-Befehle sind **asynchron** – jeder Aufruf dauert ca. 10 Sekunden:
 
 ```
-1. POST /bridge/v1/execute  →  {"id": "job-uuid"}
-2. 7 Sekunden warten
-3. POST /bridge/v1/poll     →  Ergebnis mit afi_status
+POST /bridge/v1/execute  →  {"id": "job-uuid"}
+[7 Sekunden warten]
+POST /bridge/v1/poll     →  Ergebnis mit afi_status: 0 = OK
 ```
-
-Dies ist das normale Verhalten – jeder Befehl dauert ca. 10 Sekunden.
 
 ### Authentifizierung
 
 OAuth2 Password Grant gegen `api.danalock.com`:
-- `client_id`: `danalock-web`
-- Token wird in der Joomla-Session gecacht (1 Stunde)
 
-### Zeitbasierte PINs
+```
+POST https://api.danalock.com/oauth2/token
+grant_type=password
+username=<email>
+password=<passwort>
+client_id=danalock-web
+client_secret=
+```
 
-Das Setzen zeitbasierter PINs ist technisch möglich (die Danalock-Hardware unterstützt es),
-wird aber nicht direkt über diese Komponente gesteuert. Stattdessen werden die Zeiten
-in der lokalen DB gespeichert und könnten über einen Joomla Scheduled Task
-automatisch aktiviert/deaktiviert werden.
+Token wird in der Joomla-Session gecacht (1 Stunde).
+
+### PIN setzen mit Zeitfenster
+
+Beim Setzen eines zeitbasierten PINs werden drei Bridge-Befehle in Folge ausgeführt:
+
+**Schritt 1: Bestehende Zeitregel abfragen**
+```json
+{
+  "device": "06:cd:42:45:44:ff",
+  "operation": "afi.pin-codes.get-time-restriction-rules",
+  "arguments": ["12"]
+}
+```
+Antwort enthält `rules[].handle` (integer) – die ID der Zeitregel.
+
+**Schritt 2: Alte Zeitregel löschen** (falls `handle` vorhanden)
+```json
+{
+  "device": "06:cd:42:45:44:ff",
+  "operation": "afi.pin-codes.delete-time-restriction-rule",
+  "arguments": [10]
+}
+```
+
+**Schritt 3: PIN setzen**
+```json
+{
+  "device": "06:cd:42:45:44:ff",
+  "operation": "afi.pin-codes.set-pin-code",
+  "arguments": ["12", "Enabled", "604113"]
+}
+```
+
+**Schritt 4: Neue Zeitregel erstellen**
+```json
+{
+  "device": "06:cd:42:45:44:ff",
+  "operation": "afi.pin-codes.create-time-restriction-rule",
+  "arguments": [
+    "12",
+    "2026 6 13 15:46 DISABLED 00:00",
+    "2026 6 19 10:00 DISABLED 00:00"
+  ]
+}
+```
+
+Zeitformat: `"YYYY M D HH:MM DISABLED 00:00"`
+- Monat und Tag **ohne** führende Null (6 nicht 06, 13 nicht 13)
+- `DISABLED 00:00` ist fester Bestandteil des Formats
+
+Erfolgreiche Antwort:
+```json
+{
+  "result": {
+    "status": "Succeeded",
+    "result": {
+      "handle": 10,
+      "afi_status": 0,
+      "afi_status_text": "Ok"
+    }
+  }
+}
+```
+
+### PIN ohne Zeitfenster setzen
+
+Nur Schritt 3 (`set-pin-code`) ohne Zeitregel-Erstellung.
+
+### PIN-Slot freigeben (nur DB)
+
+Löscht den Eintrag in `jos_rentalot_plus_danalock_pins`.
+Das Schloss wird **nicht** verändert – der PIN bleibt aktiv
+und wird beim nächsten Gast durch `set-pin-code` überschrieben.
+
+### Alle PINs auslesen
+
+```json
+{
+  "device": "06:cd:42:45:44:ff",
+  "operation": "afi.pin-codes.get-pin-codes",
+  "arguments": ["20"]
+}
+```
+
+Antwort:
+```json
+{
+  "result": {
+    "pin_codes": [
+      {"identifier": 1, "status": 2, "digits": "123456"},
+      {"identifier": 2, "status": 1, "digits": ""}
+    ]
+  }
+}
+```
+`status`: 1 = frei, 2 = aktiv. Zeitfenster-Informationen werden **nicht** zurückgegeben.
+
+### Schloss-Status abfragen
+
+```json
+{
+  "device": "06:cd:42:45:44:ff",
+  "operation": "afi.lock.get-state",
+  "arguments": []
+}
+```
+
+Antwort: `{"result": {"state": "Locked"}}` oder `"Unlocked"`
 
 ---
 
@@ -163,10 +280,12 @@ Joomla\Component\RentalotplusDanalock\Administrator\...
 
 ## Lizenz
 
-GNU General Public License version 2 or later  
-Basiert auf der inoffiziellen Danalock API-Dokumentation von  
-[@gechu](https://github.com/gechu/unofficial-danalock-web-api) und  
+GNU General Public License version 2 or later
+
+Basiert auf der inoffiziellen Danalock API-Dokumentation von
+[@gechu](https://github.com/gechu/unofficial-danalock-web-api) und
 [@Dan1001](https://github.com/Dan1001/danabridge-python).
+API-Details durch Analyse des Netzwerkverkehrs von my.danalock.com ermittelt.
 
 ---
 
@@ -174,11 +293,10 @@ Basiert auf der inoffiziellen Danalock API-Dokumentation von
 
 ### 1.0.0
 - Erstveröffentlichung
-- Buchungsübersicht mit PIN-Verwaltung
-- Direkte Bridge-API Integration
+- Buchungsübersicht mit PIN-Verwaltung und Zeitfenstern
+- Vollständige Bridge-API Integration (set, delete, get, time-restriction-rules)
+- Automatische Slot-Freigabe bei abgelaufenen Buchungen
+- Belegte Slots im PIN-Dialog markiert
 - Debug-Logging
 - Mehrhaus-Unterstützung
-
----
-
-*Entwickelt als Ergänzung zu [Rentalot Plus](https://github.com/SvenPausH/Rentalotplus)*
+- Automatische Einordnung als Rentalot-Plus-Untermenü
